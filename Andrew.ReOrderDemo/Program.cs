@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
 
 namespace Andrew.ReOrderDemo
 {
@@ -7,7 +10,14 @@ namespace Andrew.ReOrderDemo
     {
         static void Main(string[] args)
         {
-            var ro = new ReOrderBuffer(3);
+            foreach(var x in GetCommands())
+            {
+                Console.WriteLine($"{x.Position:#000}, {x.Message}; {x.OccurAt.TotalMilliseconds}");
+            }
+            return;
+
+
+            var ro = new DemoReOrderBuffer(3);
 
             foreach(var item in GetData())
             {
@@ -19,24 +29,89 @@ namespace Andrew.ReOrderDemo
         {
             return new int[] { 3, 2, 1, 0, 4, 5, 9, 6, 7, 10, 8, 11, 12, 20, 19, 13, 14, 18, 17, 16, 15,30,29,28,27,26,25,24,23,22,21 };
         }
+
+        static IEnumerable<OrderedCommand> GetCommands(bool boost = true)
+        {
+            //SortedSet<OrderedCommand> orders = new SortedSet<OrderedCommand>();
+            List<OrderedCommand> orders = new List<OrderedCommand>();
+
+            Random rnd = new Random();
+            for (int i = 1; i <= 100; i++)
+            {
+                orders.Add(new OrderedCommand()
+                {
+                    Position = i,
+                    OccurAt = TimeSpan.FromMilliseconds( 500 + i * 100 + rnd.Next(500) - 500/2),
+                    Message = $"CMD-{i:#00000}"
+                });
+            }
+            //orders.Sort((a, b) => a.OccurAt.CompareTo(b.OccurAt));
+
+            TimeSpan start = TimeSpan.Zero;
+            foreach(var c in (from x in orders orderby x.OccurAt ascending select x))
+            {
+                if (!boost)
+                {
+                    Task.Delay(c.OccurAt - start).Wait();
+                    start = c.OccurAt;
+                }
+                yield return c;
+            }
+        }
     }
 
 
-
-    public class ReOrderBuffer
+    public class OrderedCommand// : IComparable<OrderedCommand>
     {
-        private int _buffer_size_limit = 0;
-        private int _current_index = 0;
+        public int Position = 0;
+        public TimeSpan OccurAt = TimeSpan.Zero;
+        public string Message;
 
-        private SortedSet<int> _buffer = new SortedSet<int>();
+        //public int CompareTo([AllowNull] OrderedCommand other)
+        //{
+        //    return this.Position.CompareTo(other.Position);
+        //}
+    }
 
-        public ReOrderBuffer(int bufferSize)
+
+    public abstract class ReOrderBufferBase
+    {
+        protected int _buffer_size_limit = 0;
+        protected int _current_index = 0;
+
+
+        protected ReOrderBufferBase(int bufferSize)
         {
             this._buffer_size_limit = bufferSize;
             this._current_index = 0;
         }
 
-        public bool Push(int data)
+        public abstract bool Push(int data);
+
+        public bool Pop(int data)
+        {
+            //this._current_index = (data + 1);
+            Console.WriteLine($"POP:  {data}");
+            return true;
+        }
+        public bool Skip(int data)
+        {
+            Console.WriteLine($"SKIP: {data}");
+            return true;
+        }
+    }
+
+
+    public class DemoReOrderBuffer : ReOrderBufferBase
+    {
+        private SortedSet<int> _buffer = new SortedSet<int>();
+
+        public DemoReOrderBuffer(int bufferSize) : base(bufferSize)
+        {
+
+        }
+
+        public override bool Push(int data)
         {
             if (data < this._current_index)
             {
@@ -83,17 +158,6 @@ namespace Andrew.ReOrderDemo
                 return true;
             }
         }
-
-        public bool Pop(int data)
-        {
-            //this._current_index = (data + 1);
-            Console.WriteLine($"POP:  {data}");
-            return true;
-        }
-        public bool Skip(int data)
-        {
-            Console.WriteLine($"SKIP: {data}");
-            return true;
-        }
     }
+
 }
