@@ -72,10 +72,9 @@ namespace Andrew.ReOrderDemo
         }
     }
 
-    
+
     public abstract class ReOrderBufferBase
     {
-        protected int _current_next_index = 0;
         protected readonly TimeSpan _buffer_duration = TimeSpan.Zero;
 
 
@@ -85,9 +84,8 @@ namespace Andrew.ReOrderDemo
         private int _metrics_buffer_max = 0;
 
 
-        protected ReOrderBufferBase(int start_position, TimeSpan buffer_duration_limit)
+        protected ReOrderBufferBase(TimeSpan buffer_duration_limit)
         {
-            this._current_next_index = start_position;
             this._buffer_duration = buffer_duration_limit;
         }
 
@@ -147,9 +145,10 @@ namespace Andrew.ReOrderDemo
 
     public class DemoReOrderBuffer : ReOrderBufferBase
     {
+        private int _current_next_index = 0;
         private SortedSet<OrderedCommand> _buffer = new SortedSet<OrderedCommand>(new ReOrderBufferBase.OrderedCommandComparer());
 
-        public DemoReOrderBuffer(TimeSpan buffer_duration_limit) : base(0, buffer_duration_limit)
+        public DemoReOrderBuffer(TimeSpan buffer_duration_limit) : base(buffer_duration_limit)
         {
 
         }
