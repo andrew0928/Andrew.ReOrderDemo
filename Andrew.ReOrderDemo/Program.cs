@@ -28,7 +28,7 @@ namespace Andrew.ReOrderDemo
 
         static IEnumerable<OrderedCommand> GetCommands(bool boost = true)
         {
-            int total_count = 3000;
+            int total_count = 10000;
             int cmd_period = 100;
             int cmd_noise = 500;
 
@@ -42,7 +42,8 @@ namespace Andrew.ReOrderDemo
                 orders.Add(new OrderedCommand()
                 {
                     Position = i,
-                    OccurAt = start + TimeSpan.FromMilliseconds(cmd_noise + i * cmd_period + rnd.Next(cmd_noise) - cmd_noise / 2),
+                    Origin = start + TimeSpan.FromMilliseconds(i * cmd_period),
+                    OccurAt = start + TimeSpan.FromMilliseconds(i * cmd_period + rnd.Next(cmd_noise)),
                     Message = $"CMD-{i:#00000}"
                 });
             }
@@ -63,12 +64,13 @@ namespace Andrew.ReOrderDemo
     public class OrderedCommand
     {
         public int Position = 0;
+        public DateTime Origin = DateTime.MinValue;
         public DateTime OccurAt = DateTime.MinValue;
         public string Message;
 
         public override string ToString()
         {
-            return $"{this.Position:#000}, {this.Message}; {this.OccurAt:HH:mm:ss.fff}";
+            return $"{this.Position:#000}, {this.Message}; {this.OccurAt:HH:mm:ss.fff} (Delay: {(this.OccurAt - this.Origin).TotalMilliseconds}) msec";
         }
     }
 
@@ -96,7 +98,7 @@ namespace Andrew.ReOrderDemo
 
             int current_buffer_size = this._metrics_total_push - this._metrics_total_pop - this._metrics_total_drop;
             this._metrics_buffer_max = Math.Max(current_buffer_size, this._metrics_buffer_max);
-
+            Console.WriteLine($"- PUSH: {data}");
             return this._Push(data);
         }
         public bool Flush()
@@ -110,13 +112,13 @@ namespace Andrew.ReOrderDemo
         public bool Pop(OrderedCommand data)
         {
             this._metrics_total_pop++;
-            Console.WriteLine($"POP:  {data}");
+            Console.WriteLine($"POP:  {data.Position:#000}, {data.Message};");
             return true;
         }
         public bool Drop(OrderedCommand data, string reason)
         {
             this._metrics_total_drop++;
-            Console.WriteLine($"DROP: {data} ({reason})");
+            Console.WriteLine($"DROP: {data.Position:#000}, {data.Message}; ({reason})");
             return true;
         }
 
@@ -220,3 +222,50 @@ namespace Andrew.ReOrderDemo
     }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
