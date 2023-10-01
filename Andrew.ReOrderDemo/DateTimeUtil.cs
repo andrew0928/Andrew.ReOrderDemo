@@ -78,22 +78,6 @@ namespace Andrew.ReOrderDemo
                 {
                     OccurTime = this._last_check_event_time
                 });
-
-                // check 是否跨過 timer 時間界線 (秒)
-                //if (this._last_check_event_time.Date < checkTime.Date)
-                //if (DateTimeInSeconds(this._last_check_event_time) < DateTimeInSeconds(checkTime))
-                //{
-                //    this._last_check_event_time = this._last_check_event_time.Date.AddSeconds(1);
-                //    this.RaiseSecondPassEvent?.Invoke(this, new TimePassEventArgs()
-                //    {
-                //        OccurTime = this._last_check_event_time
-                //    });
-                //}
-                //else
-                //{
-                //    this._last_check_event_time = checkTime;
-                //    break;
-                //}
             }
             this._last_check_event_time = checkTime;
         }

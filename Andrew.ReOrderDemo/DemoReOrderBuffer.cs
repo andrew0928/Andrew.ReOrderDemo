@@ -5,12 +5,12 @@ using System.Threading;
 
 namespace Andrew.ReOrderDemo
 {
-    public class DemoReOrderBuffer : IReOrderBufferBase
+    public class DemoReOrderBuffer : IReOrderBuffer
     {
         private int _current_next_index = 0;
         private SortedSet<OrderedCommand> _buffer = new SortedSet<OrderedCommand>(new OrderedCommandComparer());
 
-        private IReOrderBufferBase _this_interface { get { return (IReOrderBufferBase)this; } }
+        private IReOrderBuffer _this_interface { get { return (IReOrderBuffer)this; } }
 
 
         protected readonly int _buffer_size = 0;
@@ -23,33 +23,20 @@ namespace Andrew.ReOrderDemo
         {
             this._buffer_duration = buffer_duration_limit;
             this._buffer_size = buffer_size_limit;
-
-
-            //_this_interface.PopCommand += DemoReOrderBuffer_PopCommand;
-            //_this_interface.DropCommand += DemoReOrderBuffer_DropCommand;
         }
 
-        event CommandProcessEventHandler IReOrderBufferBase.PopCommand
+        event CommandProcessEventHandler IReOrderBuffer.PopCommand
         {
             add => this._pop += value;
             remove => this._pop-= value;
         }
 
-        event CommandProcessEventHandler IReOrderBufferBase.DropCommand
+        event CommandProcessEventHandler IReOrderBuffer.DropCommand
         {
             add => this._drop += value;
             remove => this._drop -= value;
         }
 
-        //private void DemoReOrderBuffer_DropCommand(OrderedCommand sender, CommandProcessEventArgs args)
-        //{
-        //    this._metrics_total_drop++;
-        //}
-
-        //private void DemoReOrderBuffer_PopCommand(OrderedCommand sender, CommandProcessEventArgs args)
-        //{
-        //    this._metrics_total_pop++;
-        //}
 
         private int _metrics_total_push = 0;
         private int _metrics_total_pop = 0;
@@ -66,11 +53,7 @@ namespace Andrew.ReOrderDemo
         }
 
 
-
-
-
-        //public bool Push(OrderedCommand data)
-        bool IReOrderBufferBase.Push(OrderedCommand data)
+        bool IReOrderBuffer.Push(OrderedCommand data)
         {
             this._metrics_total_push++;
 
@@ -86,7 +69,6 @@ namespace Andrew.ReOrderDemo
             else if (data.Position == this._current_next_index)
             {
                 // pop series
-
                 this.Pop(data, CommandProcessReasonEnum.POP_PASSTHRU);
                 this._current_next_index = data.Position + 1;
 
@@ -120,12 +102,11 @@ namespace Andrew.ReOrderDemo
                     {
                         // pop
                         this.Pop(m, CommandProcessReasonEnum.POP_BUFFERED);
-                        //throw new Exception(".....");
                     }
                     else
                     {
                         // skip
-                        this.Drop(m, CommandProcessReasonEnum.DROP_BUFFER_DURATION_FULL); //, "buffer full");
+                        this.Drop(m, CommandProcessReasonEnum.DROP_BUFFER_DURATION_FULL);
                     }
 
                     this._current_next_index = m.Position + 1;
@@ -137,8 +118,8 @@ namespace Andrew.ReOrderDemo
             }
         }
 
-        //public bool Flush()
-        bool IReOrderBufferBase.Flush()
+        
+        bool IReOrderBuffer.Flush()
         {
             while (this._buffer.Count > 0)
             {
@@ -154,7 +135,6 @@ namespace Andrew.ReOrderDemo
 
 
         protected bool Pop(OrderedCommand data, CommandProcessReasonEnum reason)
-        //bool IReOrderBufferBase.Pop(OrderedCommand data, CommandProcessReasonEnum reason)
         {
             this._metrics_total_pop++;
             //Console.WriteLine($"POP:  {data.Position:#000}, {data.Message};");
@@ -172,7 +152,6 @@ namespace Andrew.ReOrderDemo
 
 
         protected bool Drop(OrderedCommand data, CommandProcessReasonEnum reason)
-        //bool IReOrderBufferBase.Drop(OrderedCommand data, CommandProcessReasonEnum reason)
         {
             this._metrics_total_drop++;
             //Console.WriteLine($"DROP: {data.Position:#000}, {data.Message}; ({reason})");
@@ -185,6 +164,5 @@ namespace Andrew.ReOrderDemo
 
             return true;
         }
-
     }
 }

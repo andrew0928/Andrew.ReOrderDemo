@@ -41,7 +41,7 @@ namespace Andrew.ReOrderDemo
             }
 
             DateTimeUtil.Init(new DateTime(2023, 09, 16));
-            IReOrderBufferBase ro = new DemoReOrderBuffer(TimeSpan.FromMilliseconds(duration_msec), buffer_size);
+            IReOrderBuffer ro = new DemoReOrderBuffer(TimeSpan.FromMilliseconds(duration_msec), buffer_size);
 
 
             int _log_sequence = 0;
