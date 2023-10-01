@@ -5,37 +5,51 @@ using System.Threading;
 
 namespace Andrew.ReOrderDemo
 {
-    public class DemoReOrderBuffer : ReOrderBufferBase
+    public class DemoReOrderBuffer : IReOrderBufferBase
     {
         private int _current_next_index = 0;
-        private SortedSet<OrderedCommand> _buffer = new SortedSet<OrderedCommand>(new ReOrderBufferBase.OrderedCommandComparer());
+        private SortedSet<OrderedCommand> _buffer = new SortedSet<OrderedCommand>(new OrderedCommandComparer());
+
+        private IReOrderBufferBase _this_interface { get { return (IReOrderBufferBase)this; } }
 
 
         protected readonly int _buffer_size = 0;
         protected readonly TimeSpan _buffer_duration = TimeSpan.Zero;
 
+        private event CommandProcessEventHandler _pop;
+        private event CommandProcessEventHandler _drop;
 
-
-        public DemoReOrderBuffer(TimeSpan buffer_duration_limit, int buffer_size_limit) : base()
+        public DemoReOrderBuffer(TimeSpan buffer_duration_limit, int buffer_size_limit)// : base()
         {
             this._buffer_duration = buffer_duration_limit;
             this._buffer_size = buffer_size_limit;
 
 
-
-            this.PopCommand += DemoReOrderBuffer_PopCommand;
-            this.DropCommand += DemoReOrderBuffer_DropCommand;
+            //_this_interface.PopCommand += DemoReOrderBuffer_PopCommand;
+            //_this_interface.DropCommand += DemoReOrderBuffer_DropCommand;
         }
 
-        private void DemoReOrderBuffer_DropCommand(OrderedCommand sender, CommandProcessEventArgs args)
+        event CommandProcessEventHandler IReOrderBufferBase.PopCommand
         {
-            this._metrics_total_drop++;
+            add => this._pop += value;
+            remove => this._pop-= value;
         }
 
-        private void DemoReOrderBuffer_PopCommand(OrderedCommand sender, CommandProcessEventArgs args)
+        event CommandProcessEventHandler IReOrderBufferBase.DropCommand
         {
-            this._metrics_total_pop++;
+            add => this._drop += value;
+            remove => this._drop -= value;
         }
+
+        //private void DemoReOrderBuffer_DropCommand(OrderedCommand sender, CommandProcessEventArgs args)
+        //{
+        //    this._metrics_total_drop++;
+        //}
+
+        //private void DemoReOrderBuffer_PopCommand(OrderedCommand sender, CommandProcessEventArgs args)
+        //{
+        //    this._metrics_total_pop++;
+        //}
 
         private int _metrics_total_push = 0;
         private int _metrics_total_pop = 0;
@@ -55,7 +69,8 @@ namespace Andrew.ReOrderDemo
 
 
 
-        public override bool Push(OrderedCommand data)
+        //public bool Push(OrderedCommand data)
+        bool IReOrderBufferBase.Push(OrderedCommand data)
         {
             this._metrics_total_push++;
 
@@ -122,7 +137,8 @@ namespace Andrew.ReOrderDemo
             }
         }
 
-        public override bool Flush()
+        //public bool Flush()
+        bool IReOrderBufferBase.Flush()
         {
             while (this._buffer.Count > 0)
             {
@@ -136,6 +152,39 @@ namespace Andrew.ReOrderDemo
         }
 
 
-   
-}
+
+        protected bool Pop(OrderedCommand data, CommandProcessReasonEnum reason)
+        //bool IReOrderBufferBase.Pop(OrderedCommand data, CommandProcessReasonEnum reason)
+        {
+            this._metrics_total_pop++;
+            //Console.WriteLine($"POP:  {data.Position:#000}, {data.Message};");
+
+            this._pop?.Invoke(data, new CommandProcessEventArgs()
+            {
+                Result = CommandProcessResultEnum.POP,
+                Reason = reason,
+            });
+
+            return true;
+        }
+
+
+
+
+        protected bool Drop(OrderedCommand data, CommandProcessReasonEnum reason)
+        //bool IReOrderBufferBase.Drop(OrderedCommand data, CommandProcessReasonEnum reason)
+        {
+            this._metrics_total_drop++;
+            //Console.WriteLine($"DROP: {data.Position:#000}, {data.Message}; ({reason})");
+
+            this._drop?.Invoke(data, new CommandProcessEventArgs()
+            {
+                Result = CommandProcessResultEnum.DROP,
+                Reason = reason,
+            });
+
+            return true;
+        }
+
+    }
 }

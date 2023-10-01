@@ -26,7 +26,7 @@ namespace Andrew.ReOrderDemo
     //    }
     //}
 
-    /*
+    
     public interface IReOrderBufferBase
     {
 
@@ -36,58 +36,64 @@ namespace Andrew.ReOrderDemo
         public bool Push(OrderedCommand data);
         public bool Flush();
 
-        protected bool Pop(OrderedCommand data, CommandProcessReasonEnum reason);
+        //protected bool Pop(OrderedCommand data, CommandProcessReasonEnum reason);
 
-        protected bool Drop(OrderedCommand data, CommandProcessReasonEnum reason);
-
-
-        // inner class
+        //protected bool Drop(OrderedCommand data, CommandProcessReasonEnum reason);
 
 
-        public class CommandProcessEventArgs : EventArgs
+    }
+
+
+
+
+    // inner class
+
+
+    public class CommandProcessEventArgs : EventArgs
+    {
+        // receive-time
+        // process-time
+
+        // process-result: POP | DROP
+        // process-reason: PASSTHROU | DELAY | TIMEOUT | BUFFER-FULL | WRONG-ORDER
+        public CommandProcessResultEnum Result;
+        public CommandProcessReasonEnum Reason;
+        public string ReasonMessage;
+    }
+
+    public delegate void CommandProcessEventHandler(OrderedCommand sender, CommandProcessEventArgs args);
+
+    public enum CommandProcessResultEnum
+    {
+        POP,
+        DROP,
+    }
+
+    public enum CommandProcessReasonEnum
+    {
+        POP_PASSTHRU,
+        POP_BUFFERED,
+
+        //POP_TIMEOUT,
+        DROP_BUFFER_SIZE_FULL,
+        DROP_BUFFER_DURATION_FULL,
+
+        DROP_WRONG_ORDER,
+        DROP_FORCE_FLUSH,
+    }
+
+    public class OrderedCommandComparer : IComparer<OrderedCommand>
+    {
+        public int Compare([AllowNull] OrderedCommand x, [AllowNull] OrderedCommand y)
         {
-            // receive-time
-            // process-time
-
-            // process-result: POP | DROP
-            // process-reason: PASSTHROU | DELAY | TIMEOUT | BUFFER-FULL | WRONG-ORDER
-            public CommandProcessResultEnum Result;
-            public CommandProcessReasonEnum Reason;
-            public string ReasonMessage;
-        }
-
-        public delegate void CommandProcessEventHandler(OrderedCommand sender, CommandProcessEventArgs args);
-
-        public enum CommandProcessResultEnum
-        {
-            POP,
-            DROP,
-        }
-
-        public enum CommandProcessReasonEnum
-        {
-            POP_PASSTHRU,
-            POP_BUFFERED,
-
-            //POP_TIMEOUT,
-            DROP_BUFFER_SIZE_FULL,
-            DROP_BUFFER_DURATION_FULL,
-
-            DROP_WRONG_ORDER,
-            DROP_FORCE_FLUSH,
-        }
-
-        public class OrderedCommandComparer : IComparer<OrderedCommand>
-        {
-            public int Compare([AllowNull] OrderedCommand x, [AllowNull] OrderedCommand y)
-            {
-                return x.Position.CompareTo(y.Position);
-            }
+            return x.Position.CompareTo(y.Position);
         }
     }
-    */
 
-    
+
+
+
+    /*
     public abstract class ReOrderBufferBase
     {
 
@@ -206,5 +212,5 @@ namespace Andrew.ReOrderDemo
             }
         }
     }
-    
+    */
 }

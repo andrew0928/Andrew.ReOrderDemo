@@ -41,24 +41,26 @@ namespace Andrew.ReOrderDemo
             }
 
             DateTimeUtil.Init(new DateTime(2023, 09, 16));
-            var ro = new DemoReOrderBuffer(TimeSpan.FromMilliseconds(duration_msec), buffer_size);
+            IReOrderBufferBase ro = new DemoReOrderBuffer(TimeSpan.FromMilliseconds(duration_msec), buffer_size);
 
 
             int _log_sequence = 0;
             Console.Error.WriteLine($"TimeInSec,Push,Pop,Drop,BufferMax");
 
-            var overall_metrics = ro.ResetMetrics();
+            var overall_metrics = (ro as DemoReOrderBuffer).ResetMetrics();
             DateTimeUtil.Instance.RaiseSecondPassEvent += (sender, args) =>
             {
+                // write metrics
                 Interlocked.Increment(ref _log_sequence);
-                var metrics = ro.ResetMetrics();
+                var metrics = (ro as DemoReOrderBuffer).ResetMetrics();
+                Console.Error.WriteLine($"{_log_sequence},{metrics.push},{metrics.pop},{metrics.drop},{metrics.buffer_max}");
 
+                // update overall statistics
                 overall_metrics.push += metrics.push;
                 overall_metrics.pop += metrics.pop;
                 overall_metrics.drop += metrics.drop;
                 overall_metrics.buffer_max = Math.Max(metrics.buffer_max, overall_metrics.buffer_max);
 
-                Console.Error.WriteLine($"{_log_sequence},{metrics.push},{metrics.pop},{metrics.drop},{metrics.buffer_max}");
             };
 
 
