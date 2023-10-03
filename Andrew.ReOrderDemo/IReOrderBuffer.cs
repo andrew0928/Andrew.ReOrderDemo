@@ -9,11 +9,11 @@ namespace Andrew.ReOrderDemo
 {
     public interface IReOrderBuffer
     {
-        public event CommandProcessEventHandler PopCommand;
-        public event CommandProcessEventHandler DropCommand;
-
         public bool Push(OrderedCommand data);
         public bool Flush();
+
+        public event CommandProcessEventHandler CommandIsReadyToSend;
+        public event CommandProcessEventHandler CommandWasDroped;
     }
 
 
@@ -22,7 +22,7 @@ namespace Andrew.ReOrderDemo
     {
         public CommandProcessResultEnum Result;
         public CommandProcessReasonEnum Reason;
-        public string ReasonMessage;
+        public string Message;
     }
 
     public delegate void CommandProcessEventHandler(OrderedCommand sender, CommandProcessEventArgs args);

@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace Andrew.ReOrderDemo
 {
-    public class DemoReOrderBuffer : IReOrderBuffer
+    public class ReOrderBuffer : IReOrderBuffer
     {
         private int _current_next_index = 0;
         private SortedSet<OrderedCommand> _buffer = new SortedSet<OrderedCommand>(new OrderedCommandComparer());
@@ -19,19 +19,19 @@ namespace Andrew.ReOrderDemo
         private event CommandProcessEventHandler _pop;
         private event CommandProcessEventHandler _drop;
 
-        public DemoReOrderBuffer(TimeSpan buffer_duration_limit, int buffer_size_limit)// : base()
+        public ReOrderBuffer(TimeSpan buffer_duration_limit, int buffer_size_limit)// : base()
         {
             this._buffer_duration = buffer_duration_limit;
             this._buffer_size = buffer_size_limit;
         }
 
-        event CommandProcessEventHandler IReOrderBuffer.PopCommand
+        event CommandProcessEventHandler IReOrderBuffer.CommandIsReadyToSend
         {
             add => this._pop += value;
             remove => this._pop-= value;
         }
 
-        event CommandProcessEventHandler IReOrderBuffer.DropCommand
+        event CommandProcessEventHandler IReOrderBuffer.CommandWasDroped
         {
             add => this._drop += value;
             remove => this._drop -= value;
@@ -42,22 +42,22 @@ namespace Andrew.ReOrderDemo
         private int _metrics_total_pop = 0;
         private int _metrics_total_drop = 0;
         private int _metrics_buffer_max = 0;
+        private double _metrics_buffer_delay = 0.0;
 
-        public (int push, int pop, int drop, int buffer_max) ResetMetrics()
+        public (int push, int pop, int drop, int buffer_max, double latency) ResetMetrics()
         {
             return (
                 Interlocked.Exchange(ref this._metrics_total_push, 0),
                 Interlocked.Exchange(ref this._metrics_total_pop, 0),
                 Interlocked.Exchange(ref this._metrics_total_drop, 0),
-                Interlocked.Exchange(ref this._metrics_buffer_max, 0));
+                Interlocked.Exchange(ref this._metrics_buffer_max, 0),
+                Interlocked.Exchange(ref this._metrics_buffer_delay, 0));
         }
 
 
         bool IReOrderBuffer.Push(OrderedCommand data)
         {
             this._metrics_total_push++;
-
-
             this._metrics_buffer_max = Math.Max(this._metrics_buffer_max, this._buffer.Count);
 
             if (data.Position < this._current_next_index)
@@ -136,6 +136,7 @@ namespace Andrew.ReOrderDemo
 
         protected bool Pop(OrderedCommand data, CommandProcessReasonEnum reason)
         {
+            this._metrics_buffer_delay += (DateTimeUtil.Instance.Now - data.OccurAt).TotalMilliseconds;// (this._metrics_average_latency * this._metrics_total_pop + (data.OccurAt - data.Origin).TotalMilliseconds) / (this._metrics_total_pop + 1);
             this._metrics_total_pop++;
             //Console.WriteLine($"POP:  {data.Position:#000}, {data.Message};");
 
