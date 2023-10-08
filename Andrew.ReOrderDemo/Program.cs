@@ -113,7 +113,7 @@ namespace Andrew.ReOrderDemo
             Console.WriteLine($"- Pop:           {overall_metrics.pop}");
             Console.WriteLine($"- Drop:          {overall_metrics.drop}");
             Console.WriteLine($"- Drop Rate (%)  {overall_metrics.drop * 100 / overall_metrics.push} %");
-            Console.WriteLine($"- Buffer Delay: {overall_metrics.latency / overall_metrics.pop} msec");
+            Console.WriteLine($"- Buffer Delay:  {overall_metrics.latency / overall_metrics.pop} msec");
             Console.WriteLine($"- Buffer Usage:  {overall_metrics.buffer_max}");
         }
 

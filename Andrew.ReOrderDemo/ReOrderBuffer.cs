@@ -14,14 +14,14 @@ namespace Andrew.ReOrderDemo
 
 
         protected readonly int _buffer_size = 0;
-        protected readonly TimeSpan _buffer_duration = TimeSpan.Zero;
+        protected readonly TimeSpan _command_max_delay = TimeSpan.Zero;
 
         private event CommandProcessEventHandler _pop;
         private event CommandProcessEventHandler _drop;
 
-        public ReOrderBuffer(TimeSpan buffer_duration_limit, int buffer_size_limit)// : base()
+        public ReOrderBuffer(TimeSpan command_delay_limit, int buffer_size_limit)// : base()
         {
-            this._buffer_duration = buffer_duration_limit;
+            this._command_max_delay = command_delay_limit;
             this._buffer_size = buffer_size_limit;
         }
 
@@ -77,7 +77,15 @@ namespace Andrew.ReOrderDemo
                     var x = this._buffer.Min;
                     this._buffer.Remove(x);
 
-                    this.Pop(x, CommandProcessReasonEnum.POP_BUFFERED);
+                    if ((DateTimeUtil.Instance.Now - x.Origin) < this._command_max_delay)
+                    {
+                        this.Pop(x, CommandProcessReasonEnum.POP_BUFFERED);
+                    }
+                    else
+                    {
+                        this.Drop(x, CommandProcessReasonEnum.DROP_COMMAND_DELAY_TOO_LONG);
+                    }
+
                     this._current_next_index = x.Position + 1;
                 }
 
@@ -94,24 +102,24 @@ namespace Andrew.ReOrderDemo
                 // queued & refresh buffer
                 this._buffer.Add(data);
 
-                while (this._buffer.Count > 0 && (this._buffer.Max.OccurAt - this._buffer.Min.OccurAt) > this._buffer_duration)
-                {
-                    var m = this._buffer.Min;
+                //while (this._buffer.Count > 0) // && (this._buffer.Max.OccurAt - this._buffer.Min.OccurAt) > this._buffer_duration)
+                //{
+                //    var m = this._buffer.Min;
 
-                    if (m.Position == this._current_next_index)
-                    {
-                        // pop
-                        this.Pop(m, CommandProcessReasonEnum.POP_BUFFERED);
-                    }
-                    else
-                    {
-                        // skip
-                        this.Drop(m, CommandProcessReasonEnum.DROP_BUFFER_DURATION_FULL);
-                    }
+                //    if (m.Position == this._current_next_index && (m.OccurAt - DateTimeUtil.Instance.Now) < this._buffer_duration)
+                //    {
+                //        // pop
+                //        this.Pop(m, CommandProcessReasonEnum.POP_BUFFERED);
+                //    }
+                //    else
+                //    {
+                //        // skip
+                //        this.Drop(m, CommandProcessReasonEnum.DROP_BUFFER_DURATION_FULL);
+                //    }
 
-                    this._current_next_index = m.Position + 1;
-                    this._buffer.Remove(m);
-                }
+                //    this._current_next_index = m.Position + 1;
+                //    this._buffer.Remove(m);
+                //}
 
                 this._metrics_buffer_max = Math.Max(this._metrics_buffer_max, this._buffer.Count);
                 return true;
