@@ -113,7 +113,7 @@ namespace Andrew.ReOrderDemo
         }
 
 
-
+        // 模擬實際接收到的 Command 順序 (會按照亂數前後位移)
         static IEnumerable<OrderedCommand> GetCommands(int period = 100, int noise = 500)
         {
             int total_count = 1000;

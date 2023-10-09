@@ -4,6 +4,8 @@ using System.Text;
 
 namespace Andrew.ReOrderDemo
 {
+
+    // 接收到的 Command 結構
     public class OrderedCommand
     {
         // 流水號，從 0 開始，按照約定必須是連續編號
