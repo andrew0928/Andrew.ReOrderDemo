@@ -14,7 +14,7 @@ namespace Andrew.ReOrderDemo
 
         public event CommandProcessEventHandler CommandIsReadyToSend;
         public event CommandProcessEventHandler CommandWasDroped;
-        //public event CommandProcessEventHandler CommandWasSkipped;
+        public event CommandSkipEventHandler CommandWasSkipped;
     }
 
 
@@ -27,26 +27,31 @@ namespace Andrew.ReOrderDemo
     }
 
     public delegate void CommandProcessEventHandler(OrderedCommand sender, CommandProcessEventArgs args);
-
+    public delegate void CommandSkipEventHandler(int position, CommandProcessEventArgs args);
 
     public enum CommandProcessResultEnum
     {
-        POP,
+        SEND,
         DROP,
+        SKIP
     }
 
     public enum CommandProcessReasonEnum
     {
-        POP_PASSTHRU,
-        POP_BUFFERED,
+        // 收到直接送出
+        SEND_PASSTHRU,
 
-        DROP_BUFFER_SIZE_FULL,
-        DROP_COMMAND_EXPIRED,
+        // 從 Buffer 內送出
+        SEND_BUFFERED,
 
-        DROP_WRONG_ORDER,
-        DROP_FORCE_FLUSH,
+        // 因為 Buffer 已滿, 被迫丟棄
+        DROP_BUFFERFULL,
 
-        DROP_SKIPPED,
+        // 因為非預期的順序 (判定是已不處理的範圍, 直接丟棄)
+        DROP_OUTOFORDER,
+
+        // 因為 Buffer 已滿, 被迫略過等待還未收到的中間訊息
+        SKIP_BUFFERFULL,
     }
 
     public class OrderedCommandComparer : IComparer<OrderedCommand>
@@ -56,5 +61,4 @@ namespace Andrew.ReOrderDemo
             return x.Position.CompareTo(y.Position);
         }
     }
-
 }

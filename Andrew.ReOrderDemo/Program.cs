@@ -39,21 +39,20 @@ namespace Andrew.ReOrderDemo
 
         static void Demo2_ExecuteCommandWithReorderBuffer(string[] args)
         {
-            int command_period = 25;
+            int command_period = 100;
             int command_noise = 500;
-            //int duration_msec = 1000;
+            
             int buffer_size = 10;
 
-            if (args.Length != 2)
+            if (args.Length == 0)
             {
                 Console.WriteLine($"Usage: [execute] {{command period in msec}} {{command noise}} {{buffer size}}");
-                Console.WriteLine($"- no arguments, use default value ({command_period} msec, {command_noise}, {buffer_size}) instead.");
+                return;
             }
             else
             {
                 command_period = int.Parse(args[0]);
                 command_noise = int.Parse(args[1]);
-                //duration_msec = int.Parse(args[2]);
                 buffer_size = int.Parse(args[2]);
             }
 
@@ -62,7 +61,7 @@ namespace Andrew.ReOrderDemo
 
 
             int _log_sequence = 0;
-            Console.Error.WriteLine($"TimeInSec,Push,Pop,Drop,BufferMax,AverageLatency");
+            Console.Error.WriteLine($"TimeInSec,Push,Send,Drop,Skip,BufferMax,Delay");
 
             var overall_metrics = (ro as ReOrderBuffer).ResetMetrics();
             DateTimeUtil.Instance.RaiseSecondPassEvent += (sender, args) =>
@@ -70,24 +69,22 @@ namespace Andrew.ReOrderDemo
                 // write metrics
                 Interlocked.Increment(ref _log_sequence);
                 var metrics = (ro as ReOrderBuffer).ResetMetrics();
-                Console.Error.WriteLine($"{_log_sequence},{metrics.push},{metrics.pop},{metrics.drop},{metrics.buffer_max},{metrics.latency / metrics.pop}");
+                double avg_latency = 0;
+                if (metrics.send > 0) avg_latency = metrics.delay / metrics.send;
+                Console.Error.WriteLine($"{_log_sequence},{metrics.push},{metrics.send},{metrics.drop},{metrics.skip},{metrics.buffer_max},{avg_latency}");
 
                 // update overall statistics
                 overall_metrics.push += metrics.push;
-                overall_metrics.pop += metrics.pop;
+                overall_metrics.send += metrics.send;
                 overall_metrics.drop += metrics.drop;
+                overall_metrics.skip += metrics.skip;
                 overall_metrics.buffer_max = Math.Max(metrics.buffer_max, overall_metrics.buffer_max);
-                overall_metrics.latency += metrics.latency; //(overall_metrics.latency * overall_metrics.pop + metrics.latency * metrics.pop) / (overall_metrics.pop + metrics.pop);
+                overall_metrics.delay += metrics.delay;
             };
 
 
-
-
-            //ReOrderBufferBase.CommandProcessEventHandler dump = 
-
             ro.CommandIsReadyToSend += (sender, args) =>
             {
-                // Console.WriteLine($"- {args.Reason,-20},  #{sender.Position}, {(sender.OccurAt - sender.Origin).TotalMilliseconds,5} msec, {sender.Message}");
                 ExecuteCommand(sender);
             };
 
@@ -103,71 +100,55 @@ namespace Andrew.ReOrderDemo
             }
             ro.Flush();
 
-            DateTimeUtil.Instance.TimePass(TimeSpan.FromSeconds(10));
 
-            //ro.DumpMetrics(Console.Out);
+            DateTimeUtil.Instance.TimePass(TimeSpan.FromSeconds(10));
 
             Console.WriteLine($"ReOrderBuffer Overall Metrics:");
             Console.WriteLine($"- Push:          {overall_metrics.push}");
-            Console.WriteLine($"- Pop:           {overall_metrics.pop}");
+            Console.WriteLine($"- Send:          {overall_metrics.send}");
             Console.WriteLine($"- Drop:          {overall_metrics.drop}");
             Console.WriteLine($"- Drop Rate (%)  {overall_metrics.drop * 100 / overall_metrics.push} %");
-            Console.WriteLine($"- Buffer Delay:  {overall_metrics.latency / overall_metrics.pop} msec");
+            Console.WriteLine($"- Command Delay: {overall_metrics.delay / overall_metrics.send} msec");
             Console.WriteLine($"- Buffer Usage:  {overall_metrics.buffer_max}");
         }
 
 
 
-        /// <summary>
-        /// Source - GetCommands()
-        /// </summary>
-        /// <param name="boost"></param>
-        /// <returns></returns>
         static IEnumerable<OrderedCommand> GetCommands(int period = 100, int noise = 500)
         {
             int total_count = 1000;
             TimeSpan cmd_period = TimeSpan.FromMilliseconds(period);
             int cmd_noise = noise;
 
-
             List<OrderedCommand> orders = new List<OrderedCommand>();
-            DateTime start = //DateTime.Now;
-                DateTimeUtil.Instance.Now.AddSeconds(1.0); // warn up time
+            DateTime start = DateTimeUtil.Instance.Now.AddSeconds(1.0); // warn up time
 
             Random rnd = new Random(867);
 
-
-            //Console.WriteLine($"Position,OriginDateTime,OccurAtDateTime");
             for (int i = 0; i < total_count; i++)
             {
-                //if (rnd.Next(100) == 0)
-                //{
-                //    Console.WriteLine($"RANDOM-LOST: {i}");
-                //    continue;   // 1% lost rate
-                //}
+                if (rnd.Next(100) == 0)
+                {
+                    Console.WriteLine($"RANDOM-LOST: {i}");
+                    continue;   // 1% lost rate
+                }
+
+                //
+                // todo: 隨機可以改成高斯分布
+                //
                 var order = new OrderedCommand()
                 {
                     Position = i,
-                    Origin = start + cmd_period * i, // * ((double)total_count + i) / total_count, // TimeSpan.FromMilliseconds(i * cmd_period),
-                    OccurAt = start + cmd_period * i + TimeSpan.FromMilliseconds(rnd.Next(cmd_noise)), //TimeSpan.FromMilliseconds(i * cmd_period + rnd.Next(cmd_noise)),
+                    Origin = start + cmd_period * i,
+                    OccurAt = start + cmd_period * i + TimeSpan.FromMilliseconds(rnd.Next(cmd_noise)), 
                     Message = $"CMD-{i:#00000}"
                 };
                 orders.Add(order);
-                //Console.WriteLine($"{order.Position},{(order.Origin - start).TotalMilliseconds},{(order.OccurAt - start).TotalMilliseconds}");
             }
-            //Console.WriteLine();
-            //Console.WriteLine();
-            //Console.WriteLine();
 
             int check_count = 0;
             foreach (var c in (from x in orders orderby x.OccurAt ascending select x))
             {
-                //if (!boost)
-                //{
-                //    Task.Delay(c.OccurAt - start).Wait();
-                //    start = c.OccurAt;
-                //}
-                //Console.WriteLine($"----- {c.Position}, {(c.OccurAt - start).TotalMilliseconds} ({c.OccurAt.Millisecond})");
                 DateTimeUtil.Instance.TimeSeek(c.OccurAt);
                 check_count++;
                 yield return c;
@@ -202,16 +183,6 @@ namespace Andrew.ReOrderDemo
             return true;
         }
     }
-
-
-
-
-
-
-
-
-
-
 }
 
 

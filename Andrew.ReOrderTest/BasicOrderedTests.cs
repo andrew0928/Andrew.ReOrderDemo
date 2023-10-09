@@ -45,12 +45,12 @@ namespace Andrew.ReOrderTest
         }
 
         [TestMethod]
-        public void BasicScenario5_MissCommand()
+        public void BasicScenario5_LostCommand()
         {
             this.SequenceTest(
                 100,
                 new int[] { 0, 1, 2, 3, 4,    6, 7, 8, 9, 10 },
-                new int[] { 0, 1, 2, 3, 4 });
+                new int[] { 0, 1, 2, 3, 4,    6, 7, 8, 9, 10 });
         }
 
         [TestMethod]
@@ -116,7 +116,14 @@ namespace Andrew.ReOrderTest
                 new int[] { 0,    2, 3, 4, 5,     7, 8, 9, 10 });
         }
 
-
+        [TestMethod]
+        public void BasicScenario13_BufferLimitAndLostCommand()
+        {
+            this.SequenceTest(
+                3,
+                new int[] { 0, 1, 2, 3, 4,    6, 7, 8, 9, 10 },
+                new int[] { 0, 1, 2, 3, 4,    6, 7, 8, 9, 10 });
+        }
 
 
 
@@ -159,9 +166,17 @@ namespace Andrew.ReOrderTest
             int count = 0;
             buffer.CommandIsReadyToSend += (sender, args) =>
             {
-                Console.WriteLine(sender.Position);
+                Console.WriteLine($"SEND: {sender.Position} - {args.Reason}");
                 Assert.AreEqual(expect_sequence[count], sender.Position);
                 count++;
+            };
+            buffer.CommandWasDroped += (sender, args) =>
+            {
+                Console.WriteLine($"DROP: {sender.Position} - {args.Reason}");
+            };
+            buffer.CommandWasSkipped += (sender, args) =>
+            {
+                Console.WriteLine($"SKIP: {sender} - {args.Reason}");
             };
 
             foreach (var cmd in this.GetBasicCommands(source_sequence))
@@ -171,6 +186,18 @@ namespace Andrew.ReOrderTest
 
             buffer.Flush();
             Assert.AreEqual(expect_sequence.Length, count);
+
+
+            var metrics = (buffer as ReOrderBuffer).ResetMetrics();
+            Console.WriteLine($"-----------------------------------");
+            Console.WriteLine($"Metrics:");
+            Console.WriteLine($"- PUSH:          {metrics.push}");
+            Console.WriteLine($"- SEND:          {metrics.send}");
+            Console.WriteLine($"- DROP:          {metrics.drop}");
+            Console.WriteLine($"- SKIP:          {metrics.skip}");
+
+            Console.WriteLine($"- Command Delay: {metrics.delay / metrics.push:0.000} msec");
+            Console.WriteLine($"- Buffer Usage:  {metrics.buffer_max}");
         }
 
     }
