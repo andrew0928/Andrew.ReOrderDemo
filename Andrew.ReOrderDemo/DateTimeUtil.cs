@@ -90,7 +90,7 @@ namespace Andrew.ReOrderDemo
                 this._realtime_offset += duration;
                 this.Seek_LastEventCheckTime(this.Now);
             }
-            else if (duration.TotalMilliseconds > -10.0)
+            else if (duration.TotalMilliseconds > -500.0)
             {
                 // noise, ignore
             }

@@ -14,14 +14,14 @@ namespace Andrew.ReOrderDemo
 
 
         protected readonly int _buffer_size = 0;
-        protected readonly TimeSpan _command_max_delay = TimeSpan.Zero;
+        //protected readonly TimeSpan _command_max_delay = TimeSpan.Zero;
 
         private event CommandProcessEventHandler _pop;
         private event CommandProcessEventHandler _drop;
 
-        public ReOrderBuffer(TimeSpan command_delay_limit, int buffer_size_limit)// : base()
+        public ReOrderBuffer(int buffer_size_limit)// : base()
         {
-            this._command_max_delay = command_delay_limit;
+            //this._command_max_delay = command_delay_limit;
             this._buffer_size = buffer_size_limit;
         }
 
@@ -37,6 +37,11 @@ namespace Andrew.ReOrderDemo
             remove => this._drop -= value;
         }
 
+        //event CommandProcessEventHandler IReOrderBuffer.CommandWasSkipped
+        //{
+        //    add => this._skip += value;
+        //    remove => this._skip -= value;
+        //}
 
         private int _metrics_total_push = 0;
         private int _metrics_total_pop = 0;
@@ -66,60 +71,42 @@ namespace Andrew.ReOrderDemo
                 this.Drop(data, CommandProcessReasonEnum.DROP_WRONG_ORDER);
                 return false;
             }
-            else if (data.Position == this._current_next_index)
+            else 
             {
-                // pop series
-                this.Pop(data, CommandProcessReasonEnum.POP_PASSTHRU);
-                this._current_next_index = data.Position + 1;
-
-                while (this._buffer.Count > 0 && this._buffer.Min.Position == this._current_next_index)
+                if (data.Position == this._current_next_index)
                 {
-                    var x = this._buffer.Min;
-                    this._buffer.Remove(x);
-
-                    if ((DateTimeUtil.Instance.Now - x.Origin) < this._command_max_delay)
-                    {
-                        this.Pop(x, CommandProcessReasonEnum.POP_BUFFERED);
-                    }
-                    else
-                    {
-                        this.Drop(x, CommandProcessReasonEnum.DROP_COMMAND_DELAY_TOO_LONG);
-                    }
-
-                    this._current_next_index = x.Position + 1;
+                    this.Pop(data, CommandProcessReasonEnum.POP_PASSTHRU);
+                    this._current_next_index = data.Position + 1;
+                }
+                else
+                {
+                    this._buffer.Add(data);
                 }
 
-                this._metrics_buffer_max = Math.Max(this._metrics_buffer_max, this._buffer.Count);
-                return true;
-            }
-            else if (this._buffer.Count >= this._buffer_size)
-            {
-                this.Drop(data, CommandProcessReasonEnum.DROP_BUFFER_SIZE_FULL);
-                return false;
-            }
-            else
-            {
-                // queued & refresh buffer
-                this._buffer.Add(data);
+                do
+                {
+                    if (this._buffer.Count > this._buffer_size && this._current_next_index < this._buffer.Min.Position)
+                    {
+                        // skip:
+                        this.Drop(
+                            new OrderedCommand()
+                            {
+                                Position = this._current_next_index,
+                                Message = "Command not received, and skip waiting. Message body unknown."
+                            },
+                            CommandProcessReasonEnum.DROP_SKIPPED);
+                        this._current_next_index++;
+                    }
+                    while (this._buffer.Count > 0 && this._current_next_index == this._buffer.Min.Position)
+                    {
+                        var m = this._buffer.Min;
+                        this._buffer.Remove(m);
+                        this.Pop(m, CommandProcessReasonEnum.POP_BUFFERED);
+                        this._current_next_index++;
+                    }
+                } while (this._buffer.Count > this._buffer_size);
 
-                //while (this._buffer.Count > 0) // && (this._buffer.Max.OccurAt - this._buffer.Min.OccurAt) > this._buffer_duration)
-                //{
-                //    var m = this._buffer.Min;
 
-                //    if (m.Position == this._current_next_index && (m.OccurAt - DateTimeUtil.Instance.Now) < this._buffer_duration)
-                //    {
-                //        // pop
-                //        this.Pop(m, CommandProcessReasonEnum.POP_BUFFERED);
-                //    }
-                //    else
-                //    {
-                //        // skip
-                //        this.Drop(m, CommandProcessReasonEnum.DROP_BUFFER_DURATION_FULL);
-                //    }
-
-                //    this._current_next_index = m.Position + 1;
-                //    this._buffer.Remove(m);
-                //}
 
                 this._metrics_buffer_max = Math.Max(this._metrics_buffer_max, this._buffer.Count);
                 return true;
@@ -129,13 +116,38 @@ namespace Andrew.ReOrderDemo
         
         bool IReOrderBuffer.Flush()
         {
-            while (this._buffer.Count > 0)
-            {
-                var m = this._buffer.Min;
-                this.Drop(m, CommandProcessReasonEnum.DROP_FORCE_FLUSH);// "flush");
+            //while (this._buffer.Count > 0)
+            //{
+            //    var m = this._buffer.Min;
+            //    this.Drop(m, CommandProcessReasonEnum.DROP_FORCE_FLUSH);// "flush");
 
-                this._buffer.Remove(m);
+            //    this._buffer.Remove(m);
+            //}
+
+            while(this._buffer.Count > 0)
+            {
+                if (this._current_next_index == this._buffer.Min.Position)
+                {
+                    // pop
+                    var m = this._buffer.Min;
+                    this._buffer.Remove(m);
+                    this.Pop(m, CommandProcessReasonEnum.POP_BUFFERED);
+                    this._current_next_index++;
+                }
+                else
+                {
+                    // skip
+                    this.Drop(
+                        new OrderedCommand()
+                        {
+                            Position = this._current_next_index,
+                            Message = "Command not received, and skip waiting. Message body unknown."
+                        },
+                        CommandProcessReasonEnum.DROP_SKIPPED);
+                    this._current_next_index++;
+                }
             }
+            
 
             return true;
         }
@@ -144,15 +156,27 @@ namespace Andrew.ReOrderDemo
 
         protected bool Pop(OrderedCommand data, CommandProcessReasonEnum reason)
         {
-            this._metrics_buffer_delay += (DateTimeUtil.Instance.Now - data.OccurAt).TotalMilliseconds;// (this._metrics_average_latency * this._metrics_total_pop + (data.OccurAt - data.Origin).TotalMilliseconds) / (this._metrics_total_pop + 1);
-            this._metrics_total_pop++;
-            //Console.WriteLine($"POP:  {data.Position:#000}, {data.Message};");
-
-            this._pop?.Invoke(data, new CommandProcessEventArgs()
+            //if ((DateTimeUtil.Instance.Now - data.Origin) < this._command_max_delay)
+            //if (true)
             {
-                Result = CommandProcessResultEnum.POP,
-                Reason = reason,
-            });
+                this._metrics_buffer_delay += (DateTimeUtil.Instance.Now - data.Origin).TotalMilliseconds;// (this._metrics_average_latency * this._metrics_total_pop + (data.OccurAt - data.Origin).TotalMilliseconds) / (this._metrics_total_pop + 1);
+                this._metrics_total_pop++;
+
+                //Console.WriteLine($"POP:  {data.Position:#000}, {data.Message}; ({reason})");
+                this._pop?.Invoke(data, new CommandProcessEventArgs()
+                {
+                    Result = CommandProcessResultEnum.POP,
+                    Reason = reason,
+                });
+            }
+            //else
+            //{
+            //    //this._metrics_total_drop++;
+            //    this.Drop(data, CommandProcessReasonEnum.DROP_COMMAND_EXPIRED);
+            //}
+
+
+
 
             return true;
         }
@@ -173,5 +197,6 @@ namespace Andrew.ReOrderDemo
 
             return true;
         }
+
     }
 }

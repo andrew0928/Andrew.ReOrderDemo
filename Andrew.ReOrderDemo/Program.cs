@@ -14,7 +14,6 @@ namespace Andrew.ReOrderDemo
             Demo2_ExecuteCommandWithReorderBuffer(args);
         }
 
-
         static void Demo1_ExecuteCommandWithoutReordering(string[] args)
         {
             int command_period = 100;
@@ -40,26 +39,26 @@ namespace Andrew.ReOrderDemo
 
         static void Demo2_ExecuteCommandWithReorderBuffer(string[] args)
         {
-            int command_period = 100;
+            int command_period = 25;
             int command_noise = 500;
-            int duration_msec = 100;
+            //int duration_msec = 1000;
             int buffer_size = 10;
 
             if (args.Length != 2)
             {
-                Console.WriteLine($"Usage: [execute] {{command period in msec}} {{command noise}} {{buffer duration in msec}} {{buffer size}}");
-                Console.WriteLine($"- no arguments, use default value ({command_period} msec, {command_noise}, {duration_msec} msec, {buffer_size}) instead.");
+                Console.WriteLine($"Usage: [execute] {{command period in msec}} {{command noise}} {{buffer size}}");
+                Console.WriteLine($"- no arguments, use default value ({command_period} msec, {command_noise}, {buffer_size}) instead.");
             }
             else
             {
                 command_period = int.Parse(args[0]);
                 command_noise = int.Parse(args[1]);
-                duration_msec = int.Parse(args[2]);
-                buffer_size = int.Parse(args[3]);
+                //duration_msec = int.Parse(args[2]);
+                buffer_size = int.Parse(args[2]);
             }
 
             DateTimeUtil.Init(new DateTime(2023, 09, 16));
-            IReOrderBuffer ro = new ReOrderBuffer(TimeSpan.FromMilliseconds(duration_msec), buffer_size);
+            IReOrderBuffer ro = new ReOrderBuffer(buffer_size);
 
 
             int _log_sequence = 0;
@@ -104,7 +103,7 @@ namespace Andrew.ReOrderDemo
             }
             ro.Flush();
 
-            DateTimeUtil.Instance.TimePass(TimeSpan.FromSeconds(5));
+            DateTimeUtil.Instance.TimePass(TimeSpan.FromSeconds(10));
 
             //ro.DumpMetrics(Console.Out);
 
@@ -141,7 +140,11 @@ namespace Andrew.ReOrderDemo
             //Console.WriteLine($"Position,OriginDateTime,OccurAtDateTime");
             for (int i = 0; i < total_count; i++)
             {
-                if (rnd.Next(100) == 0) continue;   // 1% lost rate
+                //if (rnd.Next(100) == 0)
+                //{
+                //    Console.WriteLine($"RANDOM-LOST: {i}");
+                //    continue;   // 1% lost rate
+                //}
                 var order = new OrderedCommand()
                 {
                     Position = i,
@@ -156,6 +159,7 @@ namespace Andrew.ReOrderDemo
             //Console.WriteLine();
             //Console.WriteLine();
 
+            int check_count = 0;
             foreach (var c in (from x in orders orderby x.OccurAt ascending select x))
             {
                 //if (!boost)
@@ -165,8 +169,11 @@ namespace Andrew.ReOrderDemo
                 //}
                 //Console.WriteLine($"----- {c.Position}, {(c.OccurAt - start).TotalMilliseconds} ({c.OccurAt.Millisecond})");
                 DateTimeUtil.Instance.TimeSeek(c.OccurAt);
+                check_count++;
                 yield return c;
             }
+
+            Console.WriteLine($"CHECK-COUNT: {check_count}, {orders.Count}");
         }
 
 

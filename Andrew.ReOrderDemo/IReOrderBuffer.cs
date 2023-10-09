@@ -14,6 +14,7 @@ namespace Andrew.ReOrderDemo
 
         public event CommandProcessEventHandler CommandIsReadyToSend;
         public event CommandProcessEventHandler CommandWasDroped;
+        //public event CommandProcessEventHandler CommandWasSkipped;
     }
 
 
@@ -40,10 +41,12 @@ namespace Andrew.ReOrderDemo
         POP_BUFFERED,
 
         DROP_BUFFER_SIZE_FULL,
-        DROP_COMMAND_DELAY_TOO_LONG,
+        DROP_COMMAND_EXPIRED,
 
         DROP_WRONG_ORDER,
         DROP_FORCE_FLUSH,
+
+        DROP_SKIPPED,
     }
 
     public class OrderedCommandComparer : IComparer<OrderedCommand>

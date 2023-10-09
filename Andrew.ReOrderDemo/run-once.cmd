@@ -2,6 +2,6 @@ cls
 rd /s /q output
 mkdir output
 
-:: Usage: dotnet run {command period in msec} {command noise} {buffer duration in msec} {buffer size}
+:: Usage: dotnet run {command period in msec} {command noise} {buffer size}
 
-dotnet run 70 500 400 10 2> output\metrics-070-400-10.csv
+dotnet run 70 500 10 2> output\metrics-070-500-10.csv
