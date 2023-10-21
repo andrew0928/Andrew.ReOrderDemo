@@ -125,6 +125,23 @@ namespace Andrew.ReOrderTest
                 new int[] { 0, 1, 2, 3, 4,    6, 7, 8, 9, 10 });
         }
 
+        [TestMethod]
+        public void BasicScenario14_ArticleDemo1()
+        {
+            this.SequenceTest(
+                100,
+                new int[] { 0, 1, 3, 4, 2 },
+                new int[] { 0, 1, 2, 3, 4 });
+        }
+        [TestMethod]
+        public void BasicScenario15_ArticleDemo2()
+        {
+            this.SequenceTest(
+                100,
+                new int[] { 0, 1, 3, 5, 2, 6, 4, 7, 8 },
+                new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 });
+        }
+
 
 
 
@@ -139,22 +156,23 @@ namespace Andrew.ReOrderTest
 
         private IEnumerable<OrderedCommand> GetBasicCommands(params int[] sequences)
         {
-            //DateTime start = DateTimeUtil.Instance.Now.AddMilliseconds(5000);
+            DateTime start = DateTimeUtil.Instance.Now.AddMilliseconds(5000);
 
 
-            //int count = 0;
+            int count = 0;
             foreach (int index in sequences)
             {
-                //DateTime _temp_origin = start.AddMilliseconds(index * 100);
-                //DateTime _temp_occurat = start.AddMilliseconds(sequences.Length * 100 + count * 100);
+                count++;
+                DateTime _temp_origin = start.AddMilliseconds(count * 100);
+                DateTime _temp_occurat = start.AddMilliseconds(count * 100 + 100);
 
-                //DateTimeUtil.Instance.TimeSeek(_temp_occurat);
+                DateTimeUtil.Instance.TimeSeek(_temp_occurat);
 
                 yield return new OrderedCommand()
                 {
                     Position = index,
-                    Origin = DateTimeUtil.Instance.Now,
-                    OccurAt = DateTimeUtil.Instance.Now,
+                    Origin = _temp_origin, //DateTimeUtil.Instance.Now,
+                    OccurAt = _temp_occurat, //DateTimeUtil.Instance.Now,
                 };
             }
         }
@@ -181,7 +199,9 @@ namespace Andrew.ReOrderTest
 
             foreach (var cmd in this.GetBasicCommands(source_sequence))
             {
+                Console.WriteLine($"PUSH: {cmd.Position}");
                 bool result = buffer.Push(cmd);
+                Console.WriteLine($"      (Buffer: {(buffer as ReOrderBuffer).DumpBuffer()})");
             }
 
             buffer.Flush();
@@ -196,7 +216,9 @@ namespace Andrew.ReOrderTest
             Console.WriteLine($"- DROP:          {metrics.drop}");
             Console.WriteLine($"- SKIP:          {metrics.skip}");
 
-            Console.WriteLine($"- Command Delay: {metrics.delay / metrics.push:0.000} msec");
+            //Console.WriteLine($"- Command Delay: {metrics.command_delay / metrics.push:0.000} msec");
+            Console.WriteLine($"- Max Delay:     {metrics.max_delay:0.000} msec");
+            Console.WriteLine($"- Average Delay: {metrics.total_delay / metrics.push:0.000} msec");
             Console.WriteLine($"- Buffer Usage:  {metrics.buffer_max}");
         }
 

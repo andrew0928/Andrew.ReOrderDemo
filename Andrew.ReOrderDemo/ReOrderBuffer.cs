@@ -48,9 +48,10 @@ namespace Andrew.ReOrderDemo
         private int _metrics_total_drop = 0;
         private int _metrics_total_skip = 0;
         private int _metrics_buffer_max = 0;
-        private double _metrics_buffer_delay = 0.0;
+        private double _metrics_buffer_max_delay = 0.0;    // 所有被成功 SEND 的 command 中, buffer 處理過程的延遲最大值 (單一 command)
+        private double _metrics_buffer_total_delay = 0.0;     // 所有被成功 SEND 的 command 中, buffer 處理過程的延遲 ( now - occurat )
 
-        public (int push, int send, int drop, int skip, int buffer_max, double delay) ResetMetrics()
+        public (int push, int send, int drop, int skip, int buffer_max, double max_delay, double total_delay) ResetMetrics()
         {
             return (
                 Interlocked.Exchange(ref this._metrics_total_push, 0),
@@ -58,7 +59,8 @@ namespace Andrew.ReOrderDemo
                 Interlocked.Exchange(ref this._metrics_total_drop, 0),
                 Interlocked.Exchange(ref this._metrics_total_skip, 0),
                 Interlocked.Exchange(ref this._metrics_buffer_max, 0),
-                Interlocked.Exchange(ref this._metrics_buffer_delay, 0));
+                Interlocked.Exchange(ref this._metrics_buffer_max_delay, 0),
+                Interlocked.Exchange(ref this._metrics_buffer_total_delay, 0));
         }
 
 
@@ -125,13 +127,7 @@ namespace Andrew.ReOrderDemo
                 else
                 {
                     // skip
-                    this.Drop(
-                        new OrderedCommand()
-                        {
-                            Position = this._current_next_index,
-                            Message = "Command not received, and skip waiting. Message body unknown."
-                        },
-                        CommandProcessReasonEnum.SKIP_BUFFERFULL);
+                    this.Skip(this._current_next_index, CommandProcessReasonEnum.SKIP_BUFFERFULL);
                     this._current_next_index++;
                 }
             }            
@@ -143,7 +139,10 @@ namespace Andrew.ReOrderDemo
 
         protected bool Send(OrderedCommand data, CommandProcessReasonEnum reason)
         {
-            this._metrics_buffer_delay += (DateTimeUtil.Instance.Now - data.Origin).TotalMilliseconds;// (this._metrics_average_latency * this._metrics_total_pop + (data.OccurAt - data.Origin).TotalMilliseconds) / (this._metrics_total_pop + 1);
+            //this._metrics_command_delay += (DateTimeUtil.Instance.Now - data.Origin).TotalMilliseconds;
+            double delay = (DateTimeUtil.Instance.Now - data.OccurAt).TotalMilliseconds;
+            this._metrics_buffer_max_delay = Math.Max(this._metrics_buffer_max_delay, delay);
+            this._metrics_buffer_total_delay += delay;
             this._metrics_total_send++;
             this._send?.Invoke(data, new CommandProcessEventArgs()
             {
@@ -158,6 +157,9 @@ namespace Andrew.ReOrderDemo
         protected bool Drop(OrderedCommand data, CommandProcessReasonEnum reason)
         {
             this._metrics_total_drop++;
+            //this._metrics_command_delay += (DateTimeUtil.Instance.Now - data.Origin).TotalMilliseconds;
+            //this._metrics_buffer_delay += (DateTimeUtil.Instance.Now - data.OccurAt).TotalMilliseconds;
+
             this._drop?.Invoke(data, new CommandProcessEventArgs()
             {
                 Result = CommandProcessResultEnum.DROP,
@@ -179,5 +181,17 @@ namespace Andrew.ReOrderDemo
             return true;
         }
 
+
+        public string DumpBuffer()
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach(OrderedCommand cmd in this._buffer)
+            {
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append($"{cmd.Position}");
+            }
+            if (sb.Length == 0) sb.Append("--");
+            return sb.ToString();
+        }
     }
 }
